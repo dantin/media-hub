@@ -1,23 +1,22 @@
-package router
+package proxy
 
 import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const version = "0.0.1-dev"
 
-var (
-	writeTimeout   time.Duration
-	connectTimeout time.Duration
-)
-
-type mirrorList []*net.UDPAddr
+type mirrorItem struct {
+	ipAddr string
+	port   int
+}
+type mirrorList []mirrorItem
 
 func (l *mirrorList) String() string {
 	return fmt.Sprint(*l)
@@ -25,13 +24,20 @@ func (l *mirrorList) String() string {
 
 func (l *mirrorList) Set(value string) error {
 	for _, m := range strings.Split(value, ",") {
-		addr, err := net.ResolveUDPAddr("udp", m)
+		tokens := strings.Split(m, ":")
+		if len(tokens) != 2 {
+			log.Printf("bad format of mirror item %s", m)
+		}
+		port, err := strconv.Atoi(tokens[1])
 		if err != nil {
-			log.Printf("ignore bad udp address %s, caused by: %s", m, err)
+			log.Printf("bad port number of mirror item %s, caused by: %s", m, err)
 			continue
 		}
 
-		*l = append(*l, addr)
+		*l = append(*l, mirrorItem{
+			ipAddr: tokens[0],
+			port:   port,
+		})
 	}
 	return nil
 }
@@ -40,8 +46,10 @@ func (l *mirrorList) Set(value string) error {
 type Config struct {
 	*flag.FlagSet
 
-	ListenAddr  string
-	MirrorAddrs mirrorList
+	ListenAddr     string
+	MirrorAddrs    mirrorList
+	ConnectTimeout time.Duration
+	ResolveTTL     time.Duration
 
 	showVersion bool
 	showUsage   bool
@@ -56,8 +64,8 @@ func NewConfig(name string) *Config {
 	fs.BoolVar(&cfg.showUsage, "h", false, "Show help message.")
 	fs.StringVar(&cfg.ListenAddr, "l", "", "Listening address (e.g. 'localhost:8080').")
 	fs.Var(&cfg.MirrorAddrs, "m", "Comma separated list of mirror addresses (e.g. 'localhost:8081,localhost:8082').")
-	fs.DurationVar(&connectTimeout, "t", 500*time.Millisecond, "Mirror connect timeout")
-	fs.DurationVar(&writeTimeout, "d", 20*time.Millisecond, "Mirror write timeout")
+	fs.DurationVar(&cfg.ConnectTimeout, "t", 500*time.Millisecond, "Mirror connect timeout")
+	fs.DurationVar(&cfg.ResolveTTL, "d", 20*time.Millisecond, "Mirror write timeout")
 
 	return &cfg
 }

@@ -4,18 +4,18 @@ import (
 	"log"
 	"os"
 
-	"github.com/dantin/media-hub/router"
+	"github.com/dantin/media-hub/proxy"
 )
 
 const name = "srt-multiplex"
 
 func main() {
-	cfg := router.NewConfig(name)
+	cfg := proxy.NewConfig(name)
 	if err := cfg.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)
 	}
 
-	svr := router.NewServer(cfg)
+	svr := proxy.NewServer(cfg)
 	if err := svr.Run(); err != nil {
 		log.Fatal(err)
 	}
