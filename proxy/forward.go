@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -29,50 +30,37 @@ type Forwarder struct {
 	connTimeout time.Duration
 	resolveTTL  time.Duration
 
-	client     *net.UDPAddr
-	upstream   *net.UDPAddr
-	bufferPool sync.Pool
+	client   *net.UDPAddr
+	upstream *net.UDPAddr
 
-	closed   uint32
-	connsMap sync.Map
+	bufferPool sync.Pool
+	closed     uint32
+	connsMap   sync.Map
 
 	upstreamMsgCh   chan packet
 	downstreamMsgCh chan packet
+
+	wg *sync.WaitGroup
 }
 
 // NewForwarder returns a new UDP forwarder.
-func NewForwarder(ipAddr net.IP, zone string, upstreamIP string, upstreamPort int, connTimeout, resolveTTL time.Duration, bufferSize int) (*Forwarder, error) {
-	client := &net.UDPAddr{
-		IP:   ipAddr,
-		Port: 0,
-		Zone: zone,
-	}
-	upstreamAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", upstreamIP, upstreamPort))
-	if err != nil {
-		return nil, fmt.Errorf("resovle upstream UDP address error, %v", err)
-	}
-	if connTimeout.Nanoseconds() == 0 {
-		return nil, fmt.Errorf("invalid value of connection timeout setting")
-	}
-	if resolveTTL.Nanoseconds() == 0 {
-		return nil, fmt.Errorf("invalid value of upstream resolve TTL setting")
-	}
-	fwd := &Forwarder{
+func NewForwarder(wg *sync.WaitGroup, client, upstream *net.UDPAddr, connTimeout, resolveTTL time.Duration, bufferSize int) *Forwarder {
+	return &Forwarder{
+		wg:              wg,
 		client:          client,
-		upstream:        upstreamAddr,
-		upstreamIP:      upstreamIP,
-		upstreamPort:    upstreamPort,
+		upstream:        upstream,
+		upstreamIP:      upstream.IP.String(),
+		upstreamPort:    upstream.Port,
 		connTimeout:     connTimeout,
 		resolveTTL:      resolveTTL,
 		bufferPool:      sync.Pool{New: func() interface{} { return make([]byte, bufferSize) }},
 		upstreamMsgCh:   make(chan packet),
 		downstreamMsgCh: make(chan packet),
 	}
-	return fwd, nil
 }
 
 // Run starts a forwarder.
-func (fwd *Forwarder) Run() {
+func (fwd *Forwarder) Run(ctx context.Context) {
 	log.Printf("start forward to upstream %s", fwd.upstream)
 	atomic.StoreUint32(&fwd.closed, 0)
 
@@ -80,6 +68,13 @@ func (fwd *Forwarder) Run() {
 	go fwd.resolveUpstreamLoop()
 	go fwd.handleDownstreamPackets()
 	go fwd.handleUpstreamPackets()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			fwd.close()
+		}
+	}()
 }
 
 // Forward forwards a UDP packet to upstream.
@@ -87,10 +82,11 @@ func (fwd *Forwarder) Forward(pkt packet) {
 	fwd.downstreamMsgCh <- pkt
 }
 
-// Close close an UDP packet fowrarder.
-func (fwd *Forwarder) Close() {
+func (fwd *Forwarder) close() {
+	defer fwd.wg.Done()
+
 	log.Printf("destroy forward to upstream %s", fwd.upstream)
-	atomic.AddUint32(&fwd.closed, 1)
+	atomic.StoreUint32(&fwd.closed, 1)
 	fwd.connsMap.Range(func(k, conn interface{}) bool {
 		conn.(*connection).udp.Close()
 		return true
@@ -107,16 +103,15 @@ func (fwd *Forwarder) handleDownstreamPackets() {
 		if fwd.isClosed() {
 			break
 		}
+
 		clientAddr := pkt.src.String()
-		log.Printf("forward UDP packet from %s to %s", clientAddr, fwd.upstream)
 
 		conn, found := fwd.connsMap.Load(clientAddr)
 		if !found {
 			conn, err := net.ListenUDP("udp", fwd.client)
 			if err != nil {
-				log.Fatalf("udp forwarder failed to dail, %v", err)
-				fwd.Close()
-				return
+				log.Printf("udp forwarder failed to dail, drop packet, err %v", err)
+				continue
 			}
 			fwd.connsMap.Store(clientAddr, &connection{
 				udp:          conn,
@@ -138,7 +133,6 @@ func (fwd *Forwarder) handleDownstreamPackets() {
 				fwd.updateClientLastActivity(clientAddr)
 			}
 		}
-		fwd.bufferPool.Put(pkt.data)
 	}
 }
 
@@ -170,6 +164,7 @@ func (fwd *Forwarder) handleUpstreamPackets() {
 		if fwd.isClosed() {
 			break
 		}
+
 		fwd.bufferPool.Put(pa.data)
 		atomic.AddUint64(&respCnt, 1)
 	}
@@ -186,6 +181,7 @@ func (fwd *Forwarder) freeIdelSocketsLoop() {
 		if fwd.isClosed() {
 			break
 		}
+
 		time.Sleep(fwd.connTimeout)
 
 		var (
@@ -215,6 +211,7 @@ func (fwd *Forwarder) resolveUpstreamLoop() {
 		if fwd.isClosed() {
 			break
 		}
+
 		time.Sleep(fwd.resolveTTL)
 		upstreamAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", fwd.upstreamIP, fwd.upstreamPort))
 		if err != nil {
