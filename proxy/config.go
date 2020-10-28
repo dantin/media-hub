@@ -64,8 +64,8 @@ func NewConfig(name string) *Config {
 	fs.BoolVar(&cfg.showUsage, "h", false, "Show help message.")
 	fs.StringVar(&cfg.ListenAddr, "l", "", "Listening address (e.g. 'localhost:8080').")
 	fs.Var(&cfg.MirrorAddrs, "m", "Comma separated list of mirror addresses (e.g. 'localhost:8081,localhost:8082').")
-	fs.DurationVar(&cfg.ConnectTimeout, "t", 500*time.Millisecond, "Mirror connect timeout")
-	fs.DurationVar(&cfg.ResolveTTL, "d", 20*time.Millisecond, "Mirror write timeout")
+	fs.DurationVar(&cfg.ConnectTimeout, "t", 500*time.Millisecond, "Client connect timeout")
+	fs.DurationVar(&cfg.ResolveTTL, "d", 20*time.Millisecond, "Mirror resolve TTL")
 
 	return &cfg
 }
@@ -85,6 +85,13 @@ func (cfg *Config) Parse(args []string) error {
 	if cfg.showUsage {
 		cfg.FlagSet.Usage()
 		os.Exit(0)
+	}
+
+	if cfg.ConnectTimeout.Nanoseconds() == 0 {
+		return fmt.Errorf("invalid value of client connection timeout")
+	}
+	if cfg.ResolveTTL.Nanoseconds() == 0 {
+		return fmt.Errorf("invalid value of mirror resolve TTL")
 	}
 
 	if cfg.ListenAddr == "" || len(cfg.MirrorAddrs) == 0 {
