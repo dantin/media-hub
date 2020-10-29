@@ -2,9 +2,10 @@ package proxy
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
+
+	"github.com/dantin/logger"
 )
 
 type mirrorItem struct {
@@ -24,11 +25,11 @@ func (l *MirrorList) Set(value string) error {
 	for _, m := range strings.Split(value, ",") {
 		tokens := strings.Split(m, ":")
 		if len(tokens) != 2 {
-			log.Printf("bad format of mirror item %s", m)
+			logger.Warnf("bad format of mirror item %s", m)
 		}
 		port, err := strconv.Atoi(tokens[1])
 		if err != nil {
-			log.Printf("bad port number of mirror item %s, caused by: %s", m, err)
+			logger.Warnf("bad port number of mirror item %s, caused by: %s", m, err)
 			continue
 		}
 
