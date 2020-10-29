@@ -4,13 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/dantin/logger"
 	"github.com/dantin/media-hub/proxy"
 )
 
@@ -32,7 +32,10 @@ var (
 )
 
 func parseArgs(args []string) error {
-	var addr string
+	var (
+		addr  string
+		level string
+	)
 
 	fs := flag.NewFlagSet(appName, flag.ContinueOnError)
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
@@ -40,7 +43,8 @@ func parseArgs(args []string) error {
 	fs.StringVar(&addr, "l", "", "Listening address (e.g. 'localhost:8080').")
 	fs.Var(&mirrorAddrs, "m", "Comma separated list of mirror addresses (e.g. 'localhost:8081,localhost:8082').")
 	fs.DurationVar(&connectTimeout, "t", 500*time.Millisecond, "Client connect timeout")
-	fs.DurationVar(&resolveTTL, "d", 20*time.Millisecond, "Mirror resolve TTL")
+	fs.DurationVar(&resolveTTL, "ttl", 20*time.Millisecond, "Mirror resolve TTL")
+	fs.StringVar(&level, "level", "info", "Log level, supported level: debug, info, error, fatal.")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -69,6 +73,12 @@ func parseArgs(args []string) error {
 	}
 	listenAddr = serverAddr
 
+	l, err := logger.New(level, os.Stdout)
+	if err != nil {
+		return fmt.Errorf("fail to resovle bind address, %v", err)
+	}
+	logger.Set(l)
+
 	if connectTimeout.Nanoseconds() == 0 {
 		return fmt.Errorf("invalid value of client connection timeout")
 	}
@@ -85,7 +95,8 @@ func parseArgs(args []string) error {
 
 func main() {
 	if err := parseArgs(os.Args[1:]); err != nil {
-		log.Fatal(err)
+		fmt.Printf("invalid command line argument, %v\n", err)
+		os.Exit(1)
 	}
 
 	// setup shutdown handler.
@@ -102,9 +113,9 @@ func main() {
 	go func() {
 		select {
 		case sig := <-sc:
-			log.Printf("signal %v received, waiting for multiplex to exit.", sig)
+			logger.Infof("signal %v received, waiting for multiplex to exit.", sig)
 			cancel()
-			log.Printf("exiting...")
+			logger.Infof("exiting...")
 			return
 		}
 	}()
@@ -112,6 +123,6 @@ func main() {
 	// run multiplex.
 	m := proxy.NewMultiplex(listenAddr, mirrorAddrs, connectTimeout, resolveTTL, maxBufferSize)
 	if err := m.Run(ctx); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }

@@ -3,11 +3,12 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/dantin/logger"
 )
 
 // Multiplex encapsulates several UDP forwards which forward each UDP packet from its listening address to its forward list.
@@ -39,13 +40,13 @@ func NewMultiplex(listenAddr *net.UDPAddr, mirrorList MirrorList, connectTimeout
 		}
 		upstream, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ma.ipAddr, ma.port))
 		if err != nil {
-			log.Printf("resovle upstream UDP address for item %s:%d, error, %v", ma.ipAddr, ma.port, err)
+			logger.Warnf("resovle upstream UDP address for item %s:%d, error, %v", ma.ipAddr, ma.port, err)
 			continue
 		}
 		forwards = append(forwards, NewForwarder(&m.wg, client, upstream, connectTimeout, resolveTTL, bufferSize))
 	}
 	if len(forwards) == 0 {
-		log.Printf("UDP multiplex will run in NO forwarding mode")
+		logger.Warnf("UDP multiplex will run in NO forwarding mode")
 	}
 	m.forwards = forwards
 
@@ -89,7 +90,7 @@ func (m *Multiplex) serverLoop(ctx context.Context) error {
 	}
 	m.listenConn = conn
 
-	log.Printf("UDP multiplex is listening on %s", m.listenAddr)
+	logger.Infof("UDP multiplex is listening on %s", m.listenAddr)
 
 	for {
 		if atomic.LoadUint32(&m.closed) > 0 {

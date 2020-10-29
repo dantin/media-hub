@@ -3,11 +3,12 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/dantin/logger"
 )
 
 // connection represents an UDP connection with last activity timestamp.
@@ -61,7 +62,7 @@ func NewForwarder(wg *sync.WaitGroup, client, upstream *net.UDPAddr, connTimeout
 
 // Run starts a forwarder.
 func (fwd *Forwarder) Run(ctx context.Context) {
-	log.Printf("start forward to upstream %s", fwd.upstream)
+	logger.Debugf("start forward to upstream %s", fwd.upstream)
 	atomic.StoreUint32(&fwd.closed, 0)
 
 	go fwd.freeIdelSocketsLoop()
@@ -85,7 +86,7 @@ func (fwd *Forwarder) Forward(pkt packet) {
 func (fwd *Forwarder) close() {
 	defer fwd.wg.Done()
 
-	log.Printf("destroy forward to upstream %s", fwd.upstream)
+	logger.Debugf("destroy forward to upstream %s", fwd.upstream)
 	atomic.StoreUint32(&fwd.closed, 1)
 	fwd.connsMap.Range(func(k, conn interface{}) bool {
 		conn.(*connection).udp.Close()
@@ -110,7 +111,7 @@ func (fwd *Forwarder) handleDownstreamPackets() {
 		if !found {
 			conn, err := net.ListenUDP("udp", fwd.client)
 			if err != nil {
-				log.Printf("udp forwarder failed to dail, drop packet, err %v", err)
+				logger.Warnf("udp forwarder failed to dail, drop packet, err %v", err)
 				continue
 			}
 			fwd.connsMap.Store(clientAddr, &connection{
@@ -215,11 +216,11 @@ func (fwd *Forwarder) resolveUpstreamLoop() {
 		time.Sleep(fwd.resolveTTL)
 		upstreamAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", fwd.upstreamIP, fwd.upstreamPort))
 		if err != nil {
-			log.Printf("resovle upstream UDP address error, %v", err)
+			logger.Warnf("resovle upstream UDP address error, %v", err)
 			continue
 		}
 		if upstreamAddr.String() != fwd.upstream.String() {
-			log.Printf("switch forward upstream from %s to %s", fwd.upstream, upstreamAddr)
+			logger.Infof("switch forward upstream from %s to %s", fwd.upstream, upstreamAddr)
 			fwd.upstream = upstreamAddr
 		}
 	}
