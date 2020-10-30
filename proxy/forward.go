@@ -45,7 +45,7 @@ type Forwarder struct {
 }
 
 // NewForwarder returns a new UDP forwarder.
-func NewForwarder(wg *sync.WaitGroup, client, upstream *net.UDPAddr, connTimeout, resolveTTL time.Duration, bufferSize int) *Forwarder {
+func NewForwarder(wg *sync.WaitGroup, client, upstream *net.UDPAddr, connTimeout, resolveTTL time.Duration) *Forwarder {
 	return &Forwarder{
 		wg:              wg,
 		client:          client,
@@ -54,7 +54,7 @@ func NewForwarder(wg *sync.WaitGroup, client, upstream *net.UDPAddr, connTimeout
 		upstreamPort:    upstream.Port,
 		connTimeout:     connTimeout,
 		resolveTTL:      resolveTTL,
-		bufferPool:      sync.Pool{New: func() interface{} { return make([]byte, bufferSize) }},
+		bufferPool:      sync.Pool{New: func() interface{} { return make([]byte, maxBufferSize) }},
 		upstreamMsgCh:   make(chan packet),
 		downstreamMsgCh: make(chan packet),
 	}
