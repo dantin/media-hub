@@ -6,10 +6,11 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/dantin/logger"
 )
+
+const maxBufferSize = 10 * (1 << 10) // 10K
 
 // Multiplex encapsulates several UDP forwards which forward each UDP packet from its listening address to its forward list.
 type Multiplex struct {
@@ -24,26 +25,26 @@ type Multiplex struct {
 }
 
 // NewMultiplex returns a runnable UDP multiplex using the given configuration.
-func NewMultiplex(listenAddr *net.UDPAddr, mirrorList MirrorList, connectTimeout, resolveTTL time.Duration, bufferSize int) *Multiplex {
+func NewMultiplex(cfg *Config) *Multiplex {
 	m := &Multiplex{
-		listenAddr: listenAddr,
-		bufferPool: sync.Pool{New: func() interface{} { return make([]byte, bufferSize) }},
+		listenAddr: cfg.ListenAddr,
+		bufferPool: sync.Pool{New: func() interface{} { return make([]byte, maxBufferSize) }},
 	}
 
 	// build UDP forwards.
 	var forwards []*Forwarder
-	for _, ma := range mirrorList {
+	for _, ma := range cfg.MirrorAddrs {
 		client := &net.UDPAddr{
-			IP:   listenAddr.IP,
+			IP:   cfg.ListenAddr.IP,
 			Port: 0,
-			Zone: listenAddr.Zone,
+			Zone: cfg.ListenAddr.Zone,
 		}
 		upstream, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ma.ipAddr, ma.port))
 		if err != nil {
 			logger.Warnf("resovle upstream UDP address for item %s:%d, error, %v", ma.ipAddr, ma.port, err)
 			continue
 		}
-		forwards = append(forwards, NewForwarder(&m.wg, client, upstream, connectTimeout, resolveTTL, bufferSize))
+		forwards = append(forwards, NewForwarder(&m.wg, client, upstream, cfg.ConnectTimeout, cfg.ResolveTTL))
 	}
 	if len(forwards) == 0 {
 		logger.Warnf("UDP multiplex will run in NO forwarding mode")
