@@ -1,0 +1,6 @@
+pid_file: "pid"
+listen: ":8080"
+api_path: "/api"
+expvar_path: "/monitor/expvar"
+pprof: "pprof_file"
+pprof_url: "/monitor/pprof"

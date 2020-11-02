@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,7 +13,10 @@ import (
 	"github.com/dantin/logger"
 )
 
-const version = "0.0.1-dev"
+const (
+	version     = "0.0.1-dev"
+	defaultName = "udp-multiplex"
+)
 
 type mirrorItem struct {
 	ipAddr string
@@ -70,7 +74,8 @@ func (cfg *Config) Parse(args []string) error {
 		showVersion bool
 		showUsage   bool
 	)
-	appName := "udp-multiplex"
+	executable, _ := os.Executable()
+	_, appName := filepath.Split(executable)
 
 	fs := flag.NewFlagSet(appName, flag.ContinueOnError)
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
@@ -110,7 +115,7 @@ func (cfg *Config) Parse(args []string) error {
 
 	l, err := logger.New(level, os.Stdout)
 	if err != nil {
-		return fmt.Errorf("fail to resovle bind address, %v", err)
+		return fmt.Errorf("fail to setup logger, %v", err)
 	}
 	logger.Set(l)
 
