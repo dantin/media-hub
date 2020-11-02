@@ -16,3 +16,6 @@
 
 bin/*
 !bin/.gitkeep
+
+cmd/asset-server/asset-server
+cmd/udp-multiplex/udp-multiplex

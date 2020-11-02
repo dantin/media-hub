@@ -12,9 +12,11 @@ import (
 )
 
 func main() {
+	defer logger.Unset()
+
 	cfg := proxy.NewConfig()
 	if err := cfg.Parse(os.Args[1:]); err != nil {
-		fmt.Printf("invalid command line argument, %v\n", err)
+		fmt.Printf("configuration parsing error, %v\n", err)
 		os.Exit(1)
 	}
 
@@ -32,10 +34,9 @@ func main() {
 	go func() {
 		select {
 		case sig := <-sc:
-			logger.Infof("signal %v received, waiting for multiplex to exit.", sig)
+			logger.Infof("signal %v received, waiting to exit.", sig)
 			cancel()
 			logger.Infof("exiting...")
-			logger.Unset()
 			return
 		}
 	}()
