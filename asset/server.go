@@ -1,7 +1,6 @@
 package asset
 
 import (
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dantin/logger"
+	"github.com/dantin/media-hub/pkg/utils"
 )
 
 const defaultAPIPath = "/"
@@ -20,6 +20,12 @@ type Server struct {
 
 // NewServer returns a runnable HTTP server using the given configuration.
 func NewServer(cfg *Config) *Server {
+	executable, _ := os.Executable()
+	rootpath, _ := filepath.Split(executable)
+
+	cfg.PProfFile = toAbsolutePath(rootpath, cfg.PProfFile)
+	cfg.PIDFile = toAbsolutePath(rootpath, cfg.PIDFile)
+
 	// normalize API path.
 	if cfg.APIPath == "" {
 		cfg.APIPath = defaultAPIPath
@@ -36,6 +42,11 @@ func NewServer(cfg *Config) *Server {
 
 // Run runs HTTP server until either a stop signal is received or an error occurs.
 func (s *Server) Run() error {
+	// create PID file.
+	if err := createPIDFile(s.cfg.PIDFile); err != nil {
+		return err
+	}
+
 	// set up HTTP server. Must use non-default mux because of expvar.
 	mux := http.NewServeMux()
 
@@ -46,10 +57,6 @@ func (s *Server) Run() error {
 	servePprof(mux, s.cfg.PProfURL)
 
 	if s.cfg.PProfFile != "" {
-		executable, _ := os.Executable()
-		rootpath, _ := filepath.Split(executable)
-		s.cfg.PProfFile = toAbsolutePath(rootpath, s.cfg.PProfFile)
-
 		cpuf, err := os.Create(s.cfg.PProfFile + ".cpu")
 		if err != nil {
 			logger.Fatalf("fail to create CPU pprof file: %v", err)
@@ -73,14 +80,5 @@ func (s *Server) Run() error {
 	logger.Infof("API served from root URL path '%s'", s.cfg.APIPath)
 	mux.HandleFunc(s.cfg.APIPath+"v0/index", index)
 
-	listenOn, err := net.Listen("tcp", s.cfg.ListenAddr)
-	if err != nil {
-		return err
-	}
-
-	server := &http.Server{
-		Handler: mux,
-	}
-
-	return server.Serve(listenOn)
+	return listenAndServe(s.cfg.ListenAddr, mux, utils.SignalHandler())
 }
