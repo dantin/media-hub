@@ -77,7 +77,7 @@ func (cfg *Config) Parse(args []string) error {
 
 	// load configuration if specified.
 	if configFile != "" {
-		logger.Infof("using config file from '%s'", configFile)
+		logger.Infof("Using config file from '%s'", configFile)
 		if err := cfg.configFromFile(configFile); err != nil {
 			return fmt.Errorf("fail to load config from file, %v", err)
 		}

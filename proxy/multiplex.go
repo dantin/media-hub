@@ -6,8 +6,10 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/dantin/logger"
+	"github.com/dantin/media-hub/pkg/utils"
 )
 
 const maxBufferSize = 10 * (1 << 10) // 10K
@@ -21,7 +23,6 @@ type Multiplex struct {
 
 	closed     uint32
 	bufferPool sync.Pool
-	wg         sync.WaitGroup
 }
 
 // NewMultiplex returns a runnable UDP multiplex using the given configuration.
@@ -39,15 +40,15 @@ func NewMultiplex(cfg *Config) *Multiplex {
 			Port: 0,
 			Zone: cfg.ListenAddr.Zone,
 		}
-		upstream, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ma.ipAddr, ma.port))
+		upstream, err := net.ResolveUDPAddr("udp", ma.String())
 		if err != nil {
-			logger.Warnf("resovle upstream UDP address for item %s:%d, error, %v", ma.ipAddr, ma.port, err)
+			logger.Warnf("Resovle upstream UDP address for item '%s', error, %v", ma, err)
 			continue
 		}
-		forwards = append(forwards, NewForwarder(&m.wg, client, upstream, cfg.ConnectTimeout, cfg.ResolveTTL))
+		forwards = append(forwards, NewForwarder(client, upstream, cfg.ConnectTimeout, cfg.ResolveTTL))
 	}
 	if len(forwards) == 0 {
-		logger.Warnf("UDP multiplex will run in NO forwarding mode")
+		logger.Warnf("UDP multiplex will run without upstream service")
 	}
 	m.forwards = forwards
 
@@ -55,36 +56,79 @@ func NewMultiplex(cfg *Config) *Multiplex {
 }
 
 // Run runs UDP multiplex server until either a stop signal is received or an error occurs.
-func (m *Multiplex) Run(ctx context.Context) error {
+func (m *Multiplex) Run() error {
+	var wg sync.WaitGroup
+
+	shuttingDown := false
+	stop := utils.SignalHandler()
+	done := make(chan bool)
+
 	// run forwards.
 	for _, fwd := range m.forwards {
-		fwd.Run(ctx)
-		m.wg.Add(1)
+		fwd.Run()
+		wg.Add(1)
 	}
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			m.Close()
+		var err error
+		logger.Infof("Listen for client UDP connections on [%s]", m.listenAddr)
+		err = m.serverLoop()
+		if err != nil {
+			if shuttingDown {
+				logger.Infof("UDP multiplex: stopped")
+			} else {
+				logger.Warnf("UDP multiplex: failed", err)
+			}
 		}
+		done <- true
 	}()
 
-	return m.serverLoop(ctx)
+	// Wait for either a termination signal or an error
+Loop:
+	for {
+		select {
+		case <-stop:
+			shuttingDown = true
+			// Give server 2 seconds to shut down.
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			if err := m.Close(ctx, &wg); err != nil {
+				// Failure/timeout shutting down the multiplex gracefully.
+				logger.Warnf("UDP multiplex failed to terminate gracefully %s", err)
+			}
+
+			// Wait for
+			<-done
+			cancel()
+
+			break Loop
+		case <-done:
+			break Loop
+		}
+	}
+
+	return nil
 }
 
 // Close close multiplex.
-func (m *Multiplex) Close() {
-	// wait forwards closing.
-	m.wg.Wait()
-
+func (m *Multiplex) Close(ctx context.Context, wg *sync.WaitGroup) error {
 	atomic.StoreUint32(&m.closed, 1)
+
+	// close forwards.
+	for _, fwd := range m.forwards {
+		fwd.Close()
+		wg.Done()
+	}
+	// wait all forwards closed.
+	wg.Wait()
 
 	if m.listenConn != nil {
 		m.listenConn.Close()
 	}
+
+	return nil
 }
 
-func (m *Multiplex) serverLoop(ctx context.Context) error {
+func (m *Multiplex) serverLoop() error {
 	conn, err := net.ListenUDP("udp", m.listenAddr)
 	if err != nil {
 		return fmt.Errorf("error while listening on bind port: %s", err)

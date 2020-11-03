@@ -69,7 +69,7 @@ func statsInit(mux *http.ServeMux, path string) {
 
 	go statsUpdater()
 
-	logger.Infof("stats: variables exposed at '%s'", path)
+	logger.Infof("stats: Variables exposed at '%s'", path)
 }
 
 // Register integer variable. Don't check for initialization.
@@ -146,11 +146,11 @@ func statsUpdater() {
 				val := upd.value.(float64)
 				v.addSample(val)
 			default:
-				logger.Warnf("stats: unsupported expvar type %T", ev)
+				logger.Warnf("stats: Unsupported expvar type %T", ev)
 			}
 		} else {
 			panic("stats: update to unknown variable " + upd.varname)
 		}
 	}
-	logger.Infof("stats: shutdown")
+	logger.Infof("stats: Shutdown")
 }

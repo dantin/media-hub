@@ -23,6 +23,10 @@ type mirrorItem struct {
 	port   int
 }
 
+func (i *mirrorItem) String() string {
+	return fmt.Sprintf("%s:%d", i.ipAddr, i.port)
+}
+
 // mirrorList represents comma separated mirror items.
 type mirrorList []mirrorItem
 
@@ -35,11 +39,12 @@ func (l *mirrorList) Set(value string) error {
 	for _, m := range strings.Split(value, ",") {
 		tokens := strings.Split(m, ":")
 		if len(tokens) != 2 {
-			logger.Warnf("bad format of mirror item %s", m)
+			logger.Warnf("Bad format of mirror item '%s'", m)
+			continue
 		}
 		port, err := strconv.Atoi(tokens[1])
 		if err != nil {
-			logger.Warnf("bad port number of mirror item %s, caused by: %s", m, err)
+			logger.Warnf("Bad port number of mirror item '%s', %s", m, err)
 			continue
 		}
 
