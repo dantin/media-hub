@@ -59,13 +59,13 @@ func (s *Server) Run() error {
 	if s.cfg.PProfFile != "" {
 		cpuf, err := os.Create(s.cfg.PProfFile + ".cpu")
 		if err != nil {
-			logger.Fatalf("fail to create CPU pprof file: %v", err)
+			logger.Fatalf("Fail to create CPU pprof file: %v", err)
 		}
 		defer cpuf.Close()
 
 		memf, err := os.Create(s.cfg.PProfFile + ".mem")
 		if err != nil {
-			logger.Fatalf("fail to create MEM pprof file: %v", err)
+			logger.Fatalf("Fail to create MEM pprof file: %v", err)
 		}
 		defer memf.Close()
 
@@ -73,7 +73,7 @@ func (s *Server) Run() error {
 		defer pprof.StopCPUProfile()
 		defer pprof.WriteHeapProfile(memf)
 
-		logger.Infof("profiling info saved to '%s.(cpu|mem)'", s.cfg.PProfFile)
+		logger.Infof("Profiling info saved to '%s.(cpu|mem)'", s.cfg.PProfFile)
 	}
 
 	// configure root path for serving API calls.

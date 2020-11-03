@@ -21,7 +21,7 @@ func servePprof(mux *http.ServeMux, serveAt string) {
 	pprofHTTPRoot = path.Clean("/"+serveAt) + "/"
 	mux.HandleFunc(pprofHTTPRoot, profileHandler)
 
-	logger.Infof("pprof: profiling info expose at '%s'", pprofHTTPRoot)
+	logger.Infof("pprof: Profiling info expose at '%s'", pprofHTTPRoot)
 }
 
 func profileHandler(wrt http.ResponseWriter, req *http.Request) {
