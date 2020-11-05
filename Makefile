@@ -7,7 +7,7 @@ GOFILES!=find . -name '*.go'
 GOLDFLAGS := -s -w -extldflags $(LDFLAGS)
 
 .PHONY: build
-build: udp-multiplex
+build: udp-multiplex asset-server
 
 .PHONY: test
 test:
@@ -33,14 +33,15 @@ lint:
 clean:
 	@echo "Running clean..."
 	@go clean
+	@rm bin/udp-multiplex bin/asset-server
 
 go.sum: $(GOFILES) go.mod
 	go mod tidy
 
-udp-multiplex: $(GOFILES) go.mod go.sum
-	@echo "Building binary..."
-	@cd cmd/udp-multiplex; go build \
+asset-server udp-multiplex: $(GOFILES) go.mod go.sum
+	@echo "Building" $@ "..."
+	@cd cmd/$@; go build \
 		-trimpath \
 		-o $@ \
 		-ldflags "$(GOLDFLAGS)"
-	@mv cmd/udp-multiplex/udp-multiplex bin
+	@mv cmd/$@/$@ bin
