@@ -1,4 +1,4 @@
-package asset
+package utils
 
 import (
 	"os"
@@ -6,16 +6,16 @@ import (
 	"strconv"
 )
 
-// Convert relative filepath to absolute.
-func toAbsolutePath(base, path string) string {
+// ToAbsolutePath converts a relative filepath to absolute.
+func ToAbsolutePath(base, path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
 	return filepath.Clean(filepath.Join(base, path))
 }
 
-// createPIDFile creates and writes process ID to PIDFile.
-func createPIDFile(PIDFile string) error {
+// CreatePIDFile creates and writes process ID to PIDFile.
+func CreatePIDFile(PIDFile string) error {
 	if PIDFile == "" {
 		return nil
 	}

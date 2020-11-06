@@ -19,3 +19,4 @@ bin/*
 
 cmd/asset-server/asset-server
 cmd/udp-multiplex/udp-multiplex
+cmd/srt-server/srt-server

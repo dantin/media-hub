@@ -23,8 +23,8 @@ func NewServer(cfg *Config) *Server {
 	executable, _ := os.Executable()
 	rootpath, _ := filepath.Split(executable)
 
-	cfg.PProfFile = toAbsolutePath(rootpath, cfg.PProfFile)
-	cfg.PIDFile = toAbsolutePath(rootpath, cfg.PIDFile)
+	cfg.PProfFile = utils.ToAbsolutePath(rootpath, cfg.PProfFile)
+	cfg.PIDFile = utils.ToAbsolutePath(rootpath, cfg.PIDFile)
 
 	// normalize API path.
 	if cfg.APIPath == "" {
@@ -43,7 +43,7 @@ func NewServer(cfg *Config) *Server {
 // Run runs HTTP server until either a stop signal is received or an error occurs.
 func (s *Server) Run() error {
 	// create PID file.
-	if err := createPIDFile(s.cfg.PIDFile); err != nil {
+	if err := utils.CreatePIDFile(s.cfg.PIDFile); err != nil {
 		return err
 	}
 

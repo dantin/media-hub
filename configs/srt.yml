@@ -1,0 +1,2 @@
+pid_file: "pid"
+listen: ":8080"
