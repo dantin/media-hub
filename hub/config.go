@@ -21,7 +21,10 @@ type Config struct {
 	*flag.FlagSet
 
 	PIDFile    string `yaml:"pid_file"`
-	ListenAddr string `yaml:"listen"`
+	ListenAddr int    `yaml:"listen"`
+	SLSPath    string `yaml:"sls_path"`
+
+	PortRelayMap map[string]int `yaml:"port_relay"`
 }
 
 // NewConfig creates an instance of UDP mutiplex configuration.
@@ -42,7 +45,7 @@ func (cfg *Config) Parse(args []string) error {
 
 	fs := flag.NewFlagSet(appName, flag.ContinueOnError)
 	fs.StringVar(&configFile, "config", "config.yml", "Path to config file.")
-	fs.StringVar(&cfg.ListenAddr, "listen", "", "Override addess and port to listen on for HTTP clients.")
+	fs.IntVar(&cfg.ListenAddr, "listen", 8080, "Override addess and port to listen on for SRT push/pull.")
 	fs.StringVar(&level, "level", "info", "Log level, supported level: debug, info, error, fatal.")
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 	fs.BoolVar(&showUsage, "h", false, "Show help message.")
