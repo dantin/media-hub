@@ -41,6 +41,7 @@ func NewSubprocess(errCh chan<- error, executable string, extEnv []string, args 
 // Run starts the program.
 func (sp *Subprocess) Run() error {
 	if err := sp.cmd.Start(); err != nil {
+		atomic.StoreUint32(&sp.closed, 1)
 		return fmt.Errorf("start process failed, %v", err)
 	}
 
@@ -65,6 +66,9 @@ func (sp *Subprocess) Run() error {
 
 // Stop stops the program.
 func (sp *Subprocess) Stop() error {
+	if atomic.LoadUint32(&sp.closed) > 0 {
+		return nil
+	}
 	atomic.StoreUint32(&sp.closed, 1)
 	return sp.cmd.Process.Kill()
 }

@@ -1,4 +1,4 @@
-package asset
+package hub
 
 import (
 	"flag"
@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 
 	"github.com/dantin/logger"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
-	version     = "0.3.0-dev"
-	defaultName = "asset-server"
+	version     = "0.1.0-dev"
+	defaultName = "srt-server"
 )
 
 // Config holds configuration of proxy.
@@ -21,11 +21,10 @@ type Config struct {
 	*flag.FlagSet
 
 	PIDFile    string `yaml:"pid_file"`
-	ListenAddr string `yaml:"listen"`
-	APIPath    string `yaml:"api_path"`
-	ExpvarPath string `yaml:"expvar_path"`
-	PProfFile  string `yaml:"pprof"`
-	PProfURL   string `yaml:"pprof_url"`
+	ListenAddr int    `yaml:"listen"`
+	SLSPath    string `yaml:"sls_path"`
+
+	PortRelayMap map[string]int `yaml:"port_relay"`
 }
 
 // NewConfig creates an instance of UDP mutiplex configuration.
@@ -46,11 +45,7 @@ func (cfg *Config) Parse(args []string) error {
 
 	fs := flag.NewFlagSet(appName, flag.ContinueOnError)
 	fs.StringVar(&configFile, "config", "config.yml", "Path to config file.")
-	fs.StringVar(&cfg.ListenAddr, "listen", "", "Override addess and port to listen on for HTTP clients.")
-	fs.StringVar(&cfg.APIPath, "api_path", "", "Override the base URL path where API is served.")
-	fs.StringVar(&cfg.ExpvarPath, "expvar", "", "Override the URL path where runtime stats are exposed. Use '-' to disable.")
-	fs.StringVar(&cfg.PProfFile, "pprof", "", "File name to save profiling info to. Disable if not set.")
-	fs.StringVar(&cfg.PProfURL, "pprof_url", "", "Debugging only! URL path for exposing profiling info. Disable if not set.")
+	fs.IntVar(&cfg.ListenAddr, "listen", 8080, "Override addess and port to listen on for SRT push/pull.")
 	fs.StringVar(&level, "level", "info", "Log level, supported level: debug, info, error, fatal.")
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 	fs.BoolVar(&showUsage, "h", false, "Show help message.")

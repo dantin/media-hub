@@ -1,0 +1,5 @@
+pid_file: "srt-server.pid"
+listen: 8080
+sls_path: "/home/david/Documents/code/srt-live-server/bin"
+port_relay:
+  room01: 4001
