@@ -16,15 +16,20 @@ const (
 	defaultName = "srt-server"
 )
 
-// Config holds configuration of proxy.
+// Config holds configuration of SRT server.
 type Config struct {
 	*flag.FlagSet
 
-	PIDFile    string `yaml:"pid_file"`
-	ListenAddr int    `yaml:"listen"`
-	SLSPath    string `yaml:"sls_path"`
-
+	PIDFile      string         `yaml:"pid_file"`
+	HomePath     string         `yaml:"home_path"`
+	SRTCfg       srtConfig      `yaml:"srt"`
 	PortRelayMap map[string]int `yaml:"port_relay"`
+}
+
+// srtConfig
+type srtConfig struct {
+	ListenOn int    `yaml:"listen"`
+	Domain   string `yaml:"domain"`
 }
 
 // NewConfig creates an instance of UDP mutiplex configuration.
@@ -44,8 +49,7 @@ func (cfg *Config) Parse(args []string) error {
 	_, appName := filepath.Split(executable)
 
 	fs := flag.NewFlagSet(appName, flag.ContinueOnError)
-	fs.StringVar(&configFile, "config", "config.yml", "Path to config file.")
-	fs.IntVar(&cfg.ListenAddr, "listen", 8080, "Override addess and port to listen on for SRT push/pull.")
+	fs.StringVar(&configFile, "config", "", "Path to config file.")
 	fs.StringVar(&level, "level", "info", "Log level, supported level: debug, info, error, fatal.")
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 	fs.BoolVar(&showUsage, "h", false, "Show help message.")
@@ -71,11 +75,12 @@ func (cfg *Config) Parse(args []string) error {
 	logger.Set(l)
 
 	// load configuration if specified.
-	if configFile != "" {
-		logger.Infof("Using config file from '%s'", configFile)
-		if err := cfg.configFromFile(configFile); err != nil {
-			return fmt.Errorf("fail to load config from file, %v", err)
-		}
+	if configFile == "" {
+		return fmt.Errorf("config file must be set")
+	}
+	logger.Infof("Using config file from '%s'", configFile)
+	if err := cfg.configFromFile(configFile); err != nil {
+		return fmt.Errorf("fail to load config from file, %v", err)
 	}
 
 	// parse again to replace config with command line options.
