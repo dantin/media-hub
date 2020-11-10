@@ -27,11 +27,11 @@ srt {
     record_hls_path_prefix /tmp/mov/sls;
 
     server {
-        listen {{.Port}};
+        listen {{.ListenOn}};
         latency 20;                          #ms
 
-        domain_player live.sls.com;
-        domain_publisher uplive.sls.com;
+        domain_player {{.Domain}};
+        domain_publisher up{{.Domain}};
         backlog 100;                         #accept connections at the same time
         idle_streams_timeout 10;             #s -1: unlimited
         app {
@@ -44,10 +44,6 @@ srt {
     }
 }
 `
-	confDir    = "conf"
-	binDir     = "bin"
-	slsName    = "sls"
-	slsCfgName = "sls.conf"
 )
 
 // Server encapsulates a SRT live server.
@@ -64,10 +60,10 @@ func NewServer(cfg *Config) *Server {
 		cfg.PIDFile = "srt-server.pid"
 	}
 	cfg.PIDFile = utils.ToAbsolutePath(rootpath, cfg.PIDFile)
-	if cfg.SLSPath == "" {
-		cfg.SLSPath = "sls.conf"
+	if cfg.HomePath == "" {
+		cfg.HomePath = rootpath
 	}
-	cfg.SLSPath = utils.ToAbsolutePath(rootpath, cfg.SLSPath)
+	cfg.HomePath = utils.ToAbsolutePath(rootpath, cfg.HomePath)
 
 	return &Server{cfg: cfg}
 }
@@ -78,20 +74,21 @@ func (s *Server) Run() error {
 	if err := utils.CreatePIDFile(s.cfg.PIDFile); err != nil {
 		return err
 	}
-	slsPath := filepath.Dir(s.cfg.SLSPath)
 
-	s.setupSLSCfg(slsPath)
+	s.setupSLSCfg()
 
-	return s.serve(slsPath, utils.SignalHandler())
+	return s.serve(utils.SignalHandler())
 }
 
 // serve runs SRT living server.
-func (s *Server) serve(slsHomePath string, stop <-chan bool) error {
+func (s *Server) serve(stop <-chan bool) error {
 	errCh := make(chan error)
 
-	slsBinPath := filepath.Join(slsHomePath, binDir, slsName)
-	slsCfgPath := filepath.Join(slsHomePath, confDir, slsCfgName)
-	server := subprocess.NewSubprocess(errCh, slsBinPath, nil, "-c", slsCfgPath)
+	server := subprocess.NewSubprocess(errCh,
+		filepath.Join(s.cfg.HomePath, "bin", "sls"),
+		nil,
+		"-c",
+		filepath.Join(s.cfg.HomePath, "conf", "sls.conf"))
 
 	if err := server.Run(); err != nil {
 		logger.Warnf("SRT live server error, %v", err)
@@ -100,9 +97,11 @@ func (s *Server) serve(slsHomePath string, stop <-chan bool) error {
 
 	var relays []*subprocess.Subprocess
 	for key, port := range s.cfg.PortRelayMap {
-		srtListenOn := fmt.Sprintf("srt://:%d", port)
-		uploadURL := fmt.Sprintf("srt://127.0.0.1:8080?streamid=uplive.sls.com/live/%s", key)
-		relay := subprocess.NewSubprocess(errCh, "/usr/local/bin/srt-live-transmit", nil, srtListenOn, uploadURL)
+		relay := subprocess.NewSubprocess(errCh,
+			"/usr/local/bin/srt-live-transmit",
+			nil,
+			fmt.Sprintf("srt://:%d", port),
+			fmt.Sprintf("srt://127.0.0.1:%d?streamid=up%s/live/%s", s.cfg.SRTCfg.ListenOn, s.cfg.SRTCfg.Domain, key))
 		relays = append(relays, relay)
 	}
 
@@ -143,17 +142,17 @@ Loop:
 	return nil
 }
 
-func (s *Server) setupSLSCfg(basePath string) error {
-	if basePath == "" {
-		return fmt.Errorf("SLS base path is empty")
+func (s *Server) setupSLSCfg() error {
+	if s.cfg.HomePath == "" {
+		return fmt.Errorf("home path is empty")
 	}
 
 	// Prepare SLS config directory.
-	cfgDir := filepath.Join(basePath, confDir)
+	cfgDir := filepath.Join(s.cfg.HomePath, "conf")
 	if err := os.MkdirAll(cfgDir, os.ModePerm); err != nil {
 		return err
 	}
-	file, err := os.Create(filepath.Join(cfgDir, slsCfgName))
+	file, err := os.Create(filepath.Join(cfgDir, "sls.conf"))
 	if err != nil {
 		return err
 	}
@@ -161,16 +160,12 @@ func (s *Server) setupSLSCfg(basePath string) error {
 
 	// Setup SLS configuration content.
 	buf := bytes.NewBuffer(nil)
-	templ := template.Must(template.New("slsCfgTemplate").Parse(slsCfgTemplate))
-	if err := templ.Execute(buf, struct {
-		Port int
-	}{
-		Port: s.cfg.ListenAddr,
-	}); err != nil {
+	templ := template.Must(template.New("slsTemplate").Parse(slsCfgTemplate))
+	if err := templ.Execute(buf, s.cfg.SRTCfg); err != nil {
 		return err
 	}
 
-	if _, err := file.WriteString(buf.String()); err != nil {
+	if _, err := file.Write(buf.Bytes()); err != nil {
 		return err
 	}
 
