@@ -33,7 +33,9 @@ lint:
 clean:
 	@echo "Running clean..."
 	@go clean
-	@rm bin/udp-multiplex bin/asset-server bin/srt-server
+	@rm build/bin/udp-multiplex build/bin/asset-server build/bin/srt-server
+	@cd third_party/srt; make clean; rm -rf CMakeCache.txt CMakeFiles Makefile cmake_install.cmake config-status.sh haisrt.pc srt.pc install_manifest.txt version.h
+	@cd third_party/srt-live-server; make clean
 
 go.sum: $(GOFILES) go.mod
 	go mod tidy
@@ -44,4 +46,8 @@ asset-server udp-multiplex srt-server: $(GOFILES) go.mod go.sum
 		-trimpath \
 		-o $@ \
 		-ldflags "$(GOLDFLAGS)"
-	@mv cmd/$@/$@ bin
+	@mv cmd/$@/$@ build/bin
+
+package:
+	cd third_party/srt; ./configure; make; sudo make install
+	cd third_party/srt-live-server; make
