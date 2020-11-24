@@ -16,6 +16,7 @@
 
 build/bin/*
 !build/bin/.gitkeep
+build/tmp
 
 cmd/asset-server/asset-server
 cmd/udp-multiplex/udp-multiplex
