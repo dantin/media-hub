@@ -35,6 +35,7 @@ clean: clean_srt clean_sls
 	@go clean
 	@rm -f build/bin/udp-multiplex build/bin/asset-server build/bin/srt-server
 	@rm -rf build/tmp
+	@rm -f config/*.pid config/*.conf
 
 go.sum: $(GOFILES) go.mod
 	go mod tidy
