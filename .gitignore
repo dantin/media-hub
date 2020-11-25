@@ -14,8 +14,9 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-bin/*
-!bin/.gitkeep
+build/bin/*
+!build/bin/.gitkeep
+build/tmp
 
 cmd/asset-server/asset-server
 cmd/udp-multiplex/udp-multiplex

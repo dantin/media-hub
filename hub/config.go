@@ -21,9 +21,9 @@ type Config struct {
 	*flag.FlagSet
 
 	PIDFile      string         `yaml:"pid_file"`
-	HomePath     string         `yaml:"home_path"`
 	SRTCfg       srtConfig      `yaml:"srt"`
 	PortRelayMap map[string]int `yaml:"port_relay"`
+	rootpath     string
 }
 
 // srtConfig
@@ -78,6 +78,8 @@ func (cfg *Config) Parse(args []string) error {
 	if configFile == "" {
 		return fmt.Errorf("config file must be set")
 	}
+	cfg.rootpath, _ = filepath.Split(configFile)
+
 	logger.Infof("Using config file from '%s'", configFile)
 	if err := cfg.configFromFile(configFile); err != nil {
 		return fmt.Errorf("fail to load config from file, %v", err)

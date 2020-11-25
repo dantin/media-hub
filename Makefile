@@ -30,10 +30,12 @@ lint:
 	@golint $$(go list ./...)
 
 .PHONY: clean
-clean:
+clean: clean_srt clean_sls
 	@echo "Running clean..."
 	@go clean
-	@rm bin/udp-multiplex bin/asset-server bin/srt-server
+	@rm -f build/bin/udp-multiplex build/bin/asset-server build/bin/srt-server
+	@rm -rf build/tmp
+	@rm -f config/*.pid config/*.conf
 
 go.sum: $(GOFILES) go.mod
 	go mod tidy
@@ -44,4 +46,35 @@ asset-server udp-multiplex srt-server: $(GOFILES) go.mod go.sum
 		-trimpath \
 		-o $@ \
 		-ldflags "$(GOLDFLAGS)"
-	@mv cmd/$@/$@ bin
+	@mv cmd/$@/$@ build/bin
+
+.PHONY: build_srt
+build_srt:
+	@cd third_party/srt; ./configure; make; sudo make install
+
+.PHONY: clean_srt
+clean_srt:
+	@cd third_party/srt; make clean; rm -rf CMakeCache.txt CMakeFiles Makefile cmake_install.cmake config-status.sh haisrt.pc srt.pc install_manifest.txt version.h
+
+.PHONY: build_sls
+build_sls: build_srt
+	@cd third_party/srt-live-server; make
+
+.PHONY: clean_sls
+clean_sls:
+	@cd third_party/srt-live-server; make clean
+
+package: build_sls build
+	@mkdir -p build/tmp/ultrasound_1.0-1
+	@mkdir -p build/tmp/ultrasound_1.0-1/usr/local/bin
+	@mkdir -p build/tmp/ultrasound_1.0-1/usr/local/include/srt
+	@mkdir -p build/tmp/ultrasound_1.0-1/usr/local/lib/pkgconfig
+	@cp -r build/DEBIAN build/tmp/ultrasound_1.0-1
+	@cp build/bin/srt-server build/tmp/ultrasound_1.0-1/usr/local/bin
+	@cp third_party/srt/srt-live-transmit build/tmp/ultrasound_1.0-1/usr/local/bin
+	@cp third_party/srt-live-server/bin/slc build/tmp/ultrasound_1.0-1/usr/local/bin
+	@cp third_party/srt-live-server/bin/sls build/tmp/ultrasound_1.0-1/usr/local/bin
+	@cp third_party/srt/*.pc build/tmp/ultrasound_1.0-1/usr/local/lib/pkgconfig
+	@cp third_party/srt/libsrt.a build/tmp/ultrasound_1.0-1/usr/local/lib
+	@cp third_party/srt/libsrt.so* build/tmp/ultrasound_1.0-1/usr/local/lib
+	@cd build/tmp; dpkg-deb --build ultrasound_1.0-1

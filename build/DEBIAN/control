@@ -1,0 +1,7 @@
+Package: ultrasound
+Version: 1.0-1
+Architecture: amd64
+Depends: libssl1.1, zlib1g
+Maintainer: David Ding chengjie.ding@gmail.com
+Description: ultrasound
+ Backend service and utilities for AMP Ultrasound module.

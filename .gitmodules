@@ -1,0 +1,6 @@
+[submodule "third_party/srt"]
+	path = third_party/srt
+	url = https://github.com/Haivision/srt.git
+[submodule "third_party/srt-live-server"]
+	path = third_party/srt-live-server
+	url = https://github.com/Edward-Wu/srt-live-server.git
