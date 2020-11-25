@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 )
 
 // Subprocess is used to manipulate undelying, running os process.
@@ -50,6 +51,8 @@ func (sp *Subprocess) Run() error {
 			if err := sp.cmd.Wait(); err == nil {
 				return
 			}
+
+			time.Sleep(10 * time.Second)
 
 			if atomic.LoadUint32(&sp.closed) > 0 {
 				return
