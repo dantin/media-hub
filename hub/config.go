@@ -28,8 +28,10 @@ type Config struct {
 
 // srtConfig
 type srtConfig struct {
-	ListenOn int    `yaml:"listen"`
-	Domain   string `yaml:"domain"`
+	ListenOn  int    `yaml:"listen"`
+	Domain    string `yaml:"domain"`
+	HLSPath   string `yaml:"hls_path"`
+	HLSStatus string `yaml:"hls_status"`
 }
 
 // NewConfig creates an instance of UDP mutiplex configuration.

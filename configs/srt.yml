@@ -1,7 +1,8 @@
 pid_file: "srt-server.pid"
-home_path: "/home/david/Documents/tmp/ultrasound"
 srt:
   listen: 8080
   domain: "live.ultrasound.apm.com"
+  hls_path: "/tmp/mov/sls"
+  hls_status: "on"
 port_relay:
   room01: 4301
