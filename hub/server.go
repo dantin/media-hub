@@ -24,7 +24,7 @@ srt {
     log_file logs/error.log;
     log_level info;
 
-    record_hls_path_prefix /tmp/mov/sls;
+    record_hls_path_prefix {{.HLSPath}};
 
     server {
         listen {{.ListenOn}};
@@ -38,7 +38,7 @@ srt {
             app_player live;
             app_publisher live;
 
-            record_hls off;                  #on, off
+            record_hls {{.HLSStatus}};       #on, off
             record_hls_segment_duration 10;  #unit s
         }
     }
